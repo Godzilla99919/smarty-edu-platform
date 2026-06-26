@@ -1,0 +1,23 @@
+# IntelliJ IDEA
+.idea
+*.iml
+out
+gen
+
+# Maven
+target/
+*.class
+
+# Logs
+*.log
+logs/
+job
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.settings
+.project
+.classpath
