@@ -734,47 +734,53 @@ flowchart TD
 
 ## 15. MQ 消息流转总览
 
+### 15.1 订单支付/退款消息流
+
 ```mermaid
-graph LR
-    subgraph Exchanges
-        OE[ORDER_EXCHANGE]
-        CE[COURSE_EXCHANGE]
-        LE[LEARNING_EXCHANGE]
-        LRE[LIKE_RECORD_EXCHANGE]
-        PE[PROMOTION_EXCHANGE]
-        SE[SMS_EXCHANGE]
-        PAYE[PAY_EXCHANGE]
-        TDE[TRADE_DELAY_EXCHANGE]
-    end
+flowchart LR
+    A[se-trade<br/>订单服务] -->|支付成功| B[ORDER_EXCHANGE]
+    A -->|退款成功| B
+    B -->|加课表| C[se-learning<br/>学习服务]
+    B -->|更新销量| D[se-search<br/>搜索服务]
+```
 
-    subgraph Producers
-        Trade[se-trade]
-        Course[se-course]
-        Learning_P[se-learning]
-        Remark[se-remark]
-    end
+### 15.2 课程上下架消息流
 
-    subgraph Consumers
-        Learning_C[se-learning]
-        Search[se-search]
-        Promotion[se-promotion]
-        Message[se-message]
-    end
+```mermaid
+flowchart LR
+    A[se-course<br/>课程服务] -->|课程上架| B[COURSE_EXCHANGE]
+    A -->|课程下架| B
+    B -->|加入/移除索引| C[se-search<br/>搜索服务]
+```
 
-    Trade -->|ORDER_PAY_KEY / ORDER_REFUND_KEY| OE
-    Course -->|COURSE_UP_KEY / COURSE_DOWN_KEY / COURSE_EXPIRE_KEY| CE
-    Learning_P -->|WRITE_REPLY / SIGN_IN| LE
-    Remark -->|QA_LIKED_TIMES_KEY| LRE
+### 15.3 支付回调消息流
 
-    OE --> Learning_C
-    OE --> Search
-    CE --> Search
-    LE --> Learning_C
-    LRE --> Learning_C
-    PE --> Promotion
-    SE --> Message
-    PAYE --> Trade
-    TDE --> Trade
+```mermaid
+flowchart LR
+    A[se-pay<br/>支付服务] -->|支付成功| B[PAY_EXCHANGE]
+    B -->|更新订单状态| C[se-trade<br/>订单服务]
+    A -->|延迟重试| D[TRADE_DELAY_EXCHANGE]
+    D -->|重新查询支付结果| C
+```
+
+### 15.4 学习积分/点赞消息流
+
+```mermaid
+flowchart LR
+    A[se-remark<br/>互动服务] -->|点赞数变更| B[LIKE_RECORD_EXCHANGE]
+    B -->|更新点赞数| C[se-learning<br/>学习服务]
+    D[se-learning<br/>学习服务] -->|回答+5分 / 签到+分| E[LEARNING_EXCHANGE]
+    E -->|加积分| C
+```
+
+### 15.5 营销/短信消息流
+
+```mermaid
+flowchart LR
+    A[用户领取优惠券] -->|领券事件| B[PROMOTION_EXCHANGE]
+    B -->|校验+创建记录| C[se-promotion<br/>营销服务]
+    D[其他服务] -->|发送短信| E[SMS_EXCHANGE]
+    E -->|调用短信API| F[se-message<br/>消息服务]
 ```
 
 ### MQ 消息处理器汇总
