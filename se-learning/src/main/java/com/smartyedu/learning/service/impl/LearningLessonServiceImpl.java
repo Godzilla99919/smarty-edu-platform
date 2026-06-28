@@ -1,4 +1,4 @@
-﻿package com.smartyedu.learning.service.impl;
+package com.smartyedu.learning.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -66,35 +66,33 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
     //用service会循环依赖，暂时用mapper
     // private final ILearningRecordService recordService;
 
-//    @Override
-   public void addUserLessons(Long userId, List<Long> courseIds) {
-
-
-               //1.查询课程过期时间
-        List<CourseSimpleInfoDTO> cinfos = courseClient.getSimpleInfoList(courseIds);
-        if(CollUtils.isEmpty(cinfos)){
-            log.error("课程列表为空，无法添加到课表");
+    @Override
+    public void addUserLessons(Long userId, List<Long> courseIds) {
+        //1.参数校验
+        if(CollUtils.isEmpty(courseIds)){
             return;
         }
-        //2.保存课程id-用户id-课程过期时间到课程表
-        List<LearningLesson> collect = cinfos.stream().map((cinfo) -> {
-            LearningLesson learningLesson = new LearningLesson();
-            learningLesson.setCourseId(cinfo.getId());
-            learningLesson.setUserId(userId);
-            LocalDateTime now = LocalDateTime.now();
-            //用数据库时间可能有一点时间偏差，所以使用系统当前时间
-            learningLesson.setCreateTime(now);
-            //过期时间=当前时间+课程有效时间
-            learningLesson.setExpireTime(now.plusMonths(cinfo.getValidDuration()));
-            return learningLesson;
+        //2.远程批量查询课程信息，获取课程有效期
+        List<CourseSimpleInfoDTO> courseInfoList = courseClient.getSimpleInfoList(courseIds);
+        if(CollUtils.isEmpty(courseInfoList)){
+            throw new BizIllegalException("课程信息不存在");
+        }
+        //3.构建LearningLesson列表并批量保存
+        List<LearningLesson> lessons = courseInfoList.stream().map(course -> {
+            LearningLesson lesson = new LearningLesson();
+            lesson.setUserId(userId);
+            lesson.setCourseId(course.getId());
+            lesson.setStatus(LessonStatus.NOT_BEGIN);
+            lesson.setLearnedSections(0);
+            //设置过期时间：validDuration单位为月，为null则代表永久有效
+            if(course.getValidDuration() != null && course.getValidDuration() > 0){
+                lesson.setExpireTime(LocalDateTime.now().plusMonths(course.getValidDuration()));
+            }
+            return lesson;
         }).collect(Collectors.toList());
-        //3.批量保存课程到课程表
-        saveBatch(collect);
-
-
-   }
-
-
+        //4.批量保存
+        saveBatch(lessons);
+    }
 
     @Override
     public PageDTO<LearningLessonVO> queryMyLessons(PageQuery query) {
